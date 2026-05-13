@@ -8,6 +8,30 @@ cap = cv2.VideoCapture(0)
 def empty(a):
     pass
 
+def get_color_name(hue_min, hue_max, sat_min, val_min):
+    hue_mid = (hue_min + hue_max) / 2
+
+    # Ignore low saturation
+    if sat_min < 50 or val_min < 50:
+        return None
+
+    if (hue_mid <= 10) or (hue_mid >= 170):
+        return "Red"
+    elif 35 <= hue_mid <= 85:
+        return "Green"
+    elif 100 <= hue_mid <= 130:
+        return "Blue"
+    elif 11 <= hue_mid <= 34:
+        return "Yellow"
+    elif 86 <= hue_mid <= 99:
+        return "Cyan"
+    elif 131 <= hue_mid <= 159:
+        return "Purple"
+    elif 160 <= hue_mid <= 169:
+        return "Pink"
+    else:
+        return None
+
 cv2.namedWindow("HSV")
 cv2.resizeWindow("HSV", 900, 300)
 cv2.createTrackbar("Hue MIN", "HSV", 0, 179, empty)
@@ -35,8 +59,27 @@ while True:
     
     mask = cv2.inRange(imgHSV, lower, upper)
     result = cv2.bitwise_and(img, img, mask=mask)
+    colorName = get_color_name(hue_min, hue_max, sat_min, val_min)
+    hueRange = hue_max - hue_min
     
-    hStack = np.hstack([img, imgHSV, result])
+    contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+    imgBBox = img.copy()
+
+    for cnt in contours:
+        area = cv2.contourArea(cnt)
+        if area > 500:
+            x, y, w, h = cv2.boundingRect(cnt)
+            cv2.rectangle(imgBBox, (x, y), (x + w, y + h), (0, 255, 0), 2)
+            cv2.putText(imgBBox, f"Area: {int(area)}", (x, y - 8),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.55, (0, 255, 0), 2)
+                
+            if hueRange <= 60:
+                cv2.putText(imgBBox, f"Color: {colorName}", (x, y - 30),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.55, (0, 255, 0), 2)
+                
+    
+    hStack = np.hstack([img, result, imgBBox])
     cv2.imshow("Web Cam", hStack)
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break
